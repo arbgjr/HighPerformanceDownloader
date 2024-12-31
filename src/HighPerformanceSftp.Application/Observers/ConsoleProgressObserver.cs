@@ -8,16 +8,34 @@ public sealed class ConsoleProgressObserver : IProgressObserver, IConnectionObse
 {
     private readonly ILogger _logger;
     private int _lastPercentage = -1;
-    private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
+    private readonly Stopwatch _stopwatch;  // Apenas declare, não inicie
     private const int ProgressBarWidth = 50;
 
     public ConsoleProgressObserver(ILogger logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _stopwatch = new Stopwatch();  // Cria mas não inicia
+    }
+
+    public void OnStartDownload()
+    {
+        _stopwatch.Reset();
+        _stopwatch.Start();
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("Iniciando download...");
+        Console.WriteLine(new string('-', Console.BufferWidth - 1));
+        Console.ResetColor();
     }
 
     public void OnProgress(DownloadProgress progress)
     {
+        if (!_stopwatch.IsRunning)  // Se ainda não começou, inicie
+        {
+            _stopwatch.Start();
+        }
+
         var currentPercentage = (int)progress.ProgressPercentage;
 
         if (currentPercentage == _lastPercentage)

@@ -16,6 +16,8 @@ public sealed class DownloadConfig
     public string? Protocol { get; set; } = "SFTP";
     public string? HttpBaseUrl { get; set; }
     public string? HttpAuthToken { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 
     public static implicit operator DownloadConfiguration(DownloadConfig config) => new()
     {

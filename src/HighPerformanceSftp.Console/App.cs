@@ -80,7 +80,8 @@ public sealed class App
 
         return new HttpRepository(
             config.HttpBaseUrl,
-            config.HttpAuthToken,
+            config.Username,
+            config.Password,
             typedLogger);
     }
 

@@ -6,19 +6,14 @@ public sealed class HttpRepository : IFileRepository
 {
     private readonly HttpClient _client;
     private readonly string _baseUrl;
-    private readonly string? _authToken;
-    private readonly ILogger<HttpRepository> _logger;
+    private readonly ILogger _logger;
 
     public TransferProtocol Protocol => TransferProtocol.HTTPS;
 
-    public HttpRepository(
-        string baseUrl,
-        string? authToken = null,
-        ILogger<HttpRepository>? logger = null)
+    public HttpRepository(string baseUrl, string username, string password, ILogger logger)
     {
         _baseUrl = baseUrl ?? throw new ArgumentNullException(nameof(baseUrl));
-        _authToken = authToken;
-        _logger = logger ?? NullLogger<HttpRepository>.Instance;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         var handler = new SocketsHttpHandler
         {
@@ -28,11 +23,12 @@ public sealed class HttpRepository : IFileRepository
         };
 
         _client = new HttpClient(handler);
-        if (!string.IsNullOrEmpty(_authToken))
-        {
-            _client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _authToken);
-        }
+
+        // Configura autenticação básica
+        var authToken = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
     }
 
     public Task ConnectAsync() => Task.CompletedTask; // Não precisa para HTTP

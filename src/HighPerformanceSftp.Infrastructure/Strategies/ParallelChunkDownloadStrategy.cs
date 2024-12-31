@@ -59,6 +59,9 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
 
             var maxParallelChunks = Math.Max(8, context.Config.MaxParallelChunks); // Mínimo 8 chunks paralelos
 
+            // Notifica início do download
+            context.ProgressObserver.OnStartDownload();
+
             _logger.LogInformation(
                 "Iniciando download paralelo: {TotalChunks} chunks de {ChunkSize:N0} bytes",
                 totalChunks,

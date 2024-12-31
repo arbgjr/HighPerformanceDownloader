@@ -12,6 +12,14 @@ public sealed class CompositeProgressObserver : IProgressObserver
         _observers = observers ?? throw new ArgumentNullException(nameof(observers));
     }
 
+    public void OnStartDownload()
+    {
+        foreach (var observer in _observers)
+        {
+            observer.OnStartDownload();
+        }
+    }
+
     public void OnProgress(DownloadProgress progress)
     {
         foreach (var observer in _observers)

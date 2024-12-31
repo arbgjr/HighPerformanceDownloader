@@ -25,6 +25,13 @@ public sealed class FileProgressObserver : IProgressObserver
         File.WriteAllText(_logPath, header + Environment.NewLine);
     }
 
+    public void OnStartDownload()
+    {
+        _stopwatch.Reset();
+        _stopwatch.Start();
+        _logger.LogInformation("Iniciando download...");
+    }
+
     public void OnProgress(DownloadProgress progress)
     {
         try
