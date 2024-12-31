@@ -13,6 +13,9 @@ public sealed class DownloadConfig
     public int RetryDelayMs { get; init; } = 1000;
     public bool EnableCompression { get; init; } = false;
     public bool ValidateChecksum { get; init; } = true;
+    public string? Protocol { get; set; } = "SFTP";
+    public string? HttpBaseUrl { get; set; }
+    public string? HttpAuthToken { get; set; }
 
     public static implicit operator DownloadConfiguration(DownloadConfig config) => new()
     {

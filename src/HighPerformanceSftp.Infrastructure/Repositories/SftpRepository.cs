@@ -11,8 +11,9 @@ using Renci.SshNet.Security.Cryptography.Ciphers;
 
 namespace HighPerformanceSftp.Infrastructure.Repositories;
 
-public sealed class SftpRepository : ISftpRepository
+public sealed class SftpRepository : IFileRepository
 {
+    public TransferProtocol Protocol => TransferProtocol.SFTP;
     private readonly string _host;
     private readonly string _username;
     private readonly string _password;
@@ -234,7 +235,7 @@ public sealed class SftpRepository : ISftpRepository
         }
     }
 
-    bool ISftpRepository.FileExists(string path)
+    bool FileExists(string path)
     {
         return FileExistsAsync(path).GetAwaiter().GetResult();
     }

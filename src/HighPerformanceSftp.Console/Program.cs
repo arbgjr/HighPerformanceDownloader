@@ -161,7 +161,7 @@ public static class Program
 
                 // Serviços core
                 services.AddSingleton<IMemoryManager, PooledMemoryManager>();
-                services.AddSingleton<ISftpRepository>(sp =>
+                services.AddSingleton<IFileRepository>(sp =>
                 {
                     var config = sp.GetRequiredService<IOptions<SftpConfig>>().Value;
                     var logger = sp.GetRequiredService<ILogger<SftpRepository>>();

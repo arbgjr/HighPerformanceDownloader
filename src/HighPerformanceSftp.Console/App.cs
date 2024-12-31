@@ -11,11 +11,18 @@ using Microsoft.Extensions.Logging;
 
 namespace HighPerformanceSftp.Console;
 
+public sealed class DownloadOptions
+{
+    public TransferProtocol Protocol { get; init; } = TransferProtocol.SFTP;
+    public string BaseUrl { get; init; } = string.Empty;
+    public string? AuthToken { get; init; }
+}
+
 public sealed class App
 {
+    private readonly IFileRepository _repository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<App> _logger;
-    private readonly ISftpRepository _sftpRepository;
     private readonly IDownloadStrategy _downloadStrategy;
     private readonly ISystemDiagnostics _diagnostics;
     private readonly IMemoryManager _memoryManager;
@@ -23,17 +30,75 @@ public sealed class App
     public App(
         IConfiguration configuration,
         ILogger<App> logger,
-        ISftpRepository sftpRepository,
         IDownloadStrategy downloadStrategy,
         ISystemDiagnostics diagnostics,
         IMemoryManager memoryManager)
     {
-        _configuration = configuration;
-        _logger = logger;
-        _sftpRepository = sftpRepository;
-        _downloadStrategy = downloadStrategy;
-        _diagnostics = diagnostics;
-        _memoryManager = memoryManager;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
+        _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
+        _downloadStrategy = downloadStrategy ?? throw new ArgumentNullException(nameof(downloadStrategy));
+
+        try
+        {
+            var downloadConfig = configuration.GetSection("DownloadConfig").Get<DownloadConfig>()
+                ?? throw new InvalidOperationException("Seção 'DownloadConfig' não encontrada ou inválida");
+
+            var protocolValue = configuration.GetSection("DownloadConfig:Protocol").Value;
+            if (string.IsNullOrEmpty(protocolValue))
+            {
+                throw new ArgumentException("Protocolo não pode ser nulo ou vazio");
+            }
+
+            var protocol = Enum.Parse<TransferProtocol>(protocolValue, ignoreCase: true);
+
+            _repository = protocol switch
+            {
+                TransferProtocol.HTTPS => CreateHttpRepository(downloadConfig, logger),
+                TransferProtocol.SFTP => CreateSftpRepository(configuration, logger),
+                _ => throw new ArgumentException($"Protocolo não suportado: {protocol}")
+            };
+
+            _logger.LogInformation("Repositório inicializado usando protocolo: {Protocol}", protocol);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao inicializar o repositório");
+            throw;
+        }
+    }
+
+    private static HttpRepository CreateHttpRepository(DownloadConfig config, ILogger logger)
+    {
+        if (string.IsNullOrEmpty(config.HttpBaseUrl))
+            throw new ArgumentException("HttpBaseUrl não pode ser nulo ou vazio");
+
+        var typedLogger = logger as ILogger<HttpRepository> ??
+            LoggerFactory.Create(builder => builder.AddConsole())
+                .CreateLogger<HttpRepository>();
+
+        return new HttpRepository(
+            config.HttpBaseUrl,
+            config.HttpAuthToken,
+            typedLogger);
+    }
+
+    private static SftpRepository CreateSftpRepository(IConfiguration configuration, ILogger logger)
+    {
+        var sftpConfig = configuration.GetSection("SftpConfig").Get<SftpConfig>()
+            ?? throw new InvalidOperationException("Seção 'SftpConfig' não encontrada ou inválida");
+
+        var typedLogger = logger as ILogger<SftpRepository> ??
+            LoggerFactory.Create(builder => builder.AddConsole())
+                .CreateLogger<SftpRepository>();
+
+        return new SftpRepository(
+            sftpConfig.Host,
+            sftpConfig.Username,
+            sftpConfig.Password,
+            sftpConfig.Port,
+            typedLogger);
     }
 
     [RequiresUnreferencedCode("Este método pode não funcionar corretamente com o trimming de código.")]
@@ -70,11 +135,9 @@ public sealed class App
                 System.Console.WriteLine();
             }
 
-            if (_sftpRepository is SftpRepository sftp)
+            if (_repository is SftpRepository sftp)
             {
-                await sftp.ListRemoteDirectoryStructureAsync("/");
-                // Pode adicionar mais níveis específicos se necessário
-                // await sftp.ListRemoteDirectoryStructureAsync("/Clientes");
+                await _repository.ConnectAsync();
             }
 
             // Prepara observadores de progresso

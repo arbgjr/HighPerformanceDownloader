@@ -10,7 +10,7 @@ using System.IO.Pipelines;
 
 public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
 {
-    private readonly ISftpRepository _repository;
+    private readonly IFileRepository _repository;
     private readonly IMemoryManager _memoryManager;
     private readonly ILogger<ParallelChunkDownloadStrategy> _logger;
     private readonly DownloadConfig _config;
@@ -19,7 +19,7 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
     private readonly Pipe _pipe;  // Adicione isto
 
     public ParallelChunkDownloadStrategy(
-        ISftpRepository repository,
+        IFileRepository repository,
         IMemoryManager memoryManager,
         ILogger<ParallelChunkDownloadStrategy> logger,
         IOptions<DownloadConfig> downloadConfig)
