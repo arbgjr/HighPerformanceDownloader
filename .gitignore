@@ -1,0 +1,9 @@
+# .NET Core 
+*.swp 
+*.user 
+bin/ 
+obj/ 
+.vs/ 
+.vscode/ 
+TestResults/ 
+*.log 

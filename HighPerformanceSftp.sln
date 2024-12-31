@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7508E9CB-33B0-4850-87E3-2A76D67FDB3D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPerformanceSftp.Domain", "src\HighPerformanceSftp.Domain\HighPerformanceSftp.Domain.csproj", "{673CCE29-1F56-4723-8612-32B14990BAED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPerformanceSftp.Application", "src\HighPerformanceSftp.Application\HighPerformanceSftp.Application.csproj", "{8A55E8F9-902A-4627-BDB7-82515DC03D9F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPerformanceSftp.Infrastructure", "src\HighPerformanceSftp.Infrastructure\HighPerformanceSftp.Infrastructure.csproj", "{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPerformanceSftp.Console", "src\HighPerformanceSftp.Console\HighPerformanceSftp.Console.csproj", "{4910FB4B-6FC9-43A8-94F3-712B7F158608}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{673CCE29-1F56-4723-8612-32B14990BAED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{673CCE29-1F56-4723-8612-32B14990BAED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{673CCE29-1F56-4723-8612-32B14990BAED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{673CCE29-1F56-4723-8612-32B14990BAED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A55E8F9-902A-4627-BDB7-82515DC03D9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A55E8F9-902A-4627-BDB7-82515DC03D9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A55E8F9-902A-4627-BDB7-82515DC03D9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A55E8F9-902A-4627-BDB7-82515DC03D9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4910FB4B-6FC9-43A8-94F3-712B7F158608}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4910FB4B-6FC9-43A8-94F3-712B7F158608}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4910FB4B-6FC9-43A8-94F3-712B7F158608}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4910FB4B-6FC9-43A8-94F3-712B7F158608}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{673CCE29-1F56-4723-8612-32B14990BAED} = {7508E9CB-33B0-4850-87E3-2A76D67FDB3D}
+		{8A55E8F9-902A-4627-BDB7-82515DC03D9F} = {7508E9CB-33B0-4850-87E3-2A76D67FDB3D}
+		{6C5FCB2C-957D-474C-9F2A-7D08FEBA1E2A} = {7508E9CB-33B0-4850-87E3-2A76D67FDB3D}
+		{4910FB4B-6FC9-43A8-94F3-712B7F158608} = {7508E9CB-33B0-4850-87E3-2A76D67FDB3D}
+	EndGlobalSection
+EndGlobal
