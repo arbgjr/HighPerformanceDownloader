@@ -73,7 +73,7 @@ public sealed class SftpRepository : ISftpRepository
 
             _client = new SftpClient(connectionInfo);
             _client.KeepAliveInterval = TimeSpan.FromSeconds(5);
-            _client.BufferSize = 1024 * 1024 * 4;
+            _client.BufferSize = 1024 * 1024 * 8;
             _client.ConnectionInfo.Timeout = TimeSpan.FromMinutes(2);
             _client.OperationTimeout = TimeSpan.FromMinutes(5);
 
@@ -326,7 +326,7 @@ public sealed class SftpRepository : ISftpRepository
         _client.OperationTimeout = TimeSpan.FromMinutes(5);
 
         // Aumenta o buffer para melhor performance
-        _client.BufferSize = 1024 * 1024 * 2; // 2MB buffer
+        _client.BufferSize = 1024 * 1024 * 8; // 8MB buffer
 
         // Logging das configurações
         _logger.LogInformation(

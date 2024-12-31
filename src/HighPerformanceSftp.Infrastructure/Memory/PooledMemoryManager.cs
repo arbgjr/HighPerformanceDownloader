@@ -9,8 +9,8 @@ namespace HighPerformanceSftp.Infrastructure.Memory;
 public sealed class PooledMemoryManager : IMemoryManager
 {
     private readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Create(
-        maxArrayLength: 16 * 1024 * 1024, // Permitir arrays de até 16MB
-        maxArraysPerBucket: 50);          // Manter mais arrays em pool
+        maxArrayLength: 32 * 1024 * 1024, // Permitir arrays de até 32MB
+        maxArraysPerBucket: 100);          // Manter mais arrays em pool
     private readonly ConcurrentDictionary<Memory<byte>, byte[]> _rentedMemory;
     private readonly ILogger<PooledMemoryManager> _logger;
     private long _totalAllocated;

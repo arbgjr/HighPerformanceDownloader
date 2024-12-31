@@ -206,7 +206,7 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
                     stream.Position = offset;
 
                     var totalBytesRead = 0;
-                    const int bufferSize = 4 * 1024 * 1024; // 4MB por leitura
+                    const int bufferSize = 8 * 1024 * 1024; // 8MB por leitura
                     var buffer = new byte[bufferSize]; // Adicione esta linha
 
                     while (totalBytesRead < chunkSize)
