@@ -74,6 +74,10 @@ public sealed class ConsoleProgressObserver : IProgressObserver, IConnectionObse
         _stopwatch.Stop();
         Console.WriteLine();
 
+        var totalSeconds = _stopwatch.Elapsed.TotalSeconds;
+        var totalMB = metrics.TotalBytesTransferred / (1024.0 * 1024.0);
+        var averageMBps = totalMB / totalSeconds;
+
         var separator = new string('-', Console.BufferWidth - 1);
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine(separator);
@@ -86,6 +90,8 @@ public sealed class ConsoleProgressObserver : IProgressObserver, IConnectionObse
         Console.WriteLine($"Velocidade Média: {metrics.AverageSpeedMbps:F2} MB/s");
         Console.WriteLine($"Total Transferido: {FormatBytes(metrics.TotalBytesTransferred)}");
         Console.WriteLine($"Chunks Completados: {metrics.CompletedChunks}");
+
+        Console.WriteLine($"Taxa Média Real: {averageMBps:F2} MB/s");
 
         if (metrics.RetryCount > 0)
         {
@@ -104,9 +110,9 @@ public sealed class ConsoleProgressObserver : IProgressObserver, IConnectionObse
         Console.ResetColor();
 
         _logger.LogInformation(
-            "Download concluído. Tempo: {Elapsed}, Velocidade Média: {Speed} MB/s, Total: {Total}, Chunks: {Chunks}",
+            "Download concluído. Tempo: {Elapsed}, Taxa Média: {Speed:F2} MB/s, Total: {Total}, Chunks: {Chunks}",
             metrics.Elapsed,
-            metrics.AverageSpeedMbps,
+            averageMBps,
             FormatBytes(metrics.TotalBytesTransferred),
             metrics.CompletedChunks);
     }

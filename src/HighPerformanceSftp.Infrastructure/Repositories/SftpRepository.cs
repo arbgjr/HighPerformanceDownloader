@@ -1,3 +1,5 @@
+using System.Net.Sockets;
+using System.Text;
 using HighPerformanceSftp.Domain.Interfaces;
 using HighPerformanceSftp.Infrastructure.Observers;
 using Microsoft.Extensions.Logging;
@@ -48,6 +50,15 @@ public sealed class SftpRepository : ISftpRepository
             if (_client?.IsConnected == true)
                 return;
 
+            if (string.IsNullOrWhiteSpace(_host))
+                throw new InvalidOperationException("Host não pode ser nulo ou vazio");
+            if (_port <= 0 || _port > 65535)
+                throw new InvalidOperationException("Porta inválida");
+            if (string.IsNullOrWhiteSpace(_username))
+                throw new InvalidOperationException("Username não pode ser nulo ou vazio");
+            if (string.IsNullOrWhiteSpace(_password))
+                throw new InvalidOperationException("Password não pode ser nulo ou vazio");
+
             _connectionObserver?.OnSearchingHost(_host);
             _logger.LogDebug("Iniciando conexão SFTP com {Host}:{Port}", _host, _port);
 
@@ -55,14 +66,18 @@ public sealed class SftpRepository : ISftpRepository
                 new PasswordAuthenticationMethod(_username, _password))
             {
                 RetryAttempts = 3,
-                Timeout = TimeSpan.FromMinutes(2)
+                Timeout = TimeSpan.FromMinutes(2),
+                MaxSessions = 10,
+                Encoding = Encoding.UTF8
             };
 
             _client = new SftpClient(connectionInfo);
-            _client.KeepAliveInterval = TimeSpan.FromSeconds(30);
-            _client.BufferSize = 1024 * 1024; // 1MB buffer
+            _client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            _client.BufferSize = 1024 * 1024 * 2;
             _client.ConnectionInfo.Timeout = TimeSpan.FromMinutes(2);
             _client.OperationTimeout = TimeSpan.FromMinutes(5);
+
+            ConfigureSocket();
 
             _connectionObserver?.OnConnectingHost();
 
@@ -145,7 +160,7 @@ public sealed class SftpRepository : ISftpRepository
             var stream = _client!.OpenRead(path);
 
             // Wrapper para garantir que o stream seja não-blocante
-            return new BufferedStream(stream, 1024 * 1024); // 1MB buffer
+            return new BufferedStream(stream, 1024 * 1024 * 2); // 2MB buffer
         }
         catch (Exception ex)
         {
@@ -298,5 +313,27 @@ public sealed class SftpRepository : ISftpRepository
         {
             _logger.LogError(ex, "Erro ao fazer dispose do SftpRepository");
         }
+    }
+
+    private void ConfigureSocket()
+    {
+        if (_client == null)
+            return;
+
+        // Configurações de timeout e keep-alive
+        _client.KeepAliveInterval = TimeSpan.FromSeconds(15);  // Mais agressivo
+        _client.ConnectionInfo.Timeout = TimeSpan.FromMinutes(2);
+        _client.OperationTimeout = TimeSpan.FromMinutes(5);
+
+        // Aumenta o buffer para melhor performance
+        _client.BufferSize = 1024 * 1024 * 2; // 2MB buffer
+
+        // Logging das configurações
+        _logger.LogInformation(
+            "Configurações SFTP - Buffer: {BufferSize}MB, KeepAlive: {KeepAlive}s, Timeout: {Timeout}min, OperationTimeout: {OpTimeout}min",
+            _client.BufferSize / (1024 * 1024),
+            _client.KeepAliveInterval.TotalSeconds,
+            _client.ConnectionInfo.Timeout.TotalMinutes,
+            _client.OperationTimeout.TotalMinutes);
     }
 }

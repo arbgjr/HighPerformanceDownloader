@@ -8,16 +8,17 @@ namespace HighPerformanceSftp.Infrastructure.Memory;
 
 public sealed class PooledMemoryManager : IMemoryManager
 {
-    private readonly MemoryPool<byte> _pool;
-    private readonly ConcurrentDictionary<Memory<byte>, IMemoryOwner<byte>> _rentedMemory;
+    private readonly ArrayPool<byte> _arrayPool;
+    private readonly ConcurrentDictionary<Memory<byte>, byte[]> _rentedMemory;
     private readonly ILogger<PooledMemoryManager> _logger;
     private long _totalAllocated;
     private bool _disposed;
 
     public PooledMemoryManager(ILogger<PooledMemoryManager>? logger = null)
     {
-        _pool = MemoryPool<byte>.Shared;
-        _rentedMemory = new ConcurrentDictionary<Memory<byte>, IMemoryOwner<byte>>();
+        // Usar um pool customizado com tamanhos maiores de buffer
+        _arrayPool = ArrayPool<byte>.Create(maxArrayLength: 100 * 1024 * 1024, maxArraysPerBucket: 50);
+        _rentedMemory = new ConcurrentDictionary<Memory<byte>, byte[]>();
         _logger = logger ?? NullLogger<PooledMemoryManager>.Instance;
     }
 
@@ -27,21 +28,29 @@ public sealed class PooledMemoryManager : IMemoryManager
 
         try
         {
-            var owner = _pool.Rent(size);
-            var memory = owner.Memory;
+            // Arredondar para cima para o próximo múltiplo de 4KB
+            var alignedSize = (size + 4095) & ~4095;
 
-            if (!_rentedMemory.TryAdd(memory, owner))
+            // Alugar do pool
+            var array = _arrayPool.Rent(alignedSize);
+            var memory = new Memory<byte>(array, 0, size);
+
+            if (!_rentedMemory.TryAdd(memory, array))
             {
-                owner.Dispose();
+                _arrayPool.Return(array);
                 throw new InvalidOperationException("Falha ao registrar memória alugada");
             }
 
             Interlocked.Add(ref _totalAllocated, size);
 
-            _logger.LogTrace(
-                "Memória alugada: {Size:N0} bytes. Total alocado: {Total:N0} bytes",
-                size,
-                _totalAllocated);
+            if (_logger.IsEnabled(LogLevel.Trace))
+            {
+                _logger.LogTrace(
+                    "Memória alugada: {Size:N0} bytes (alinhado: {AlignedSize:N0}). Total alocado: {Total:N0} bytes",
+                    size,
+                    alignedSize,
+                    _totalAllocated);
+            }
 
             return memory;
         }
@@ -59,15 +68,24 @@ public sealed class PooledMemoryManager : IMemoryManager
 
         try
         {
-            if (_rentedMemory.TryRemove(memory, out var owner))
+            if (_rentedMemory.TryRemove(memory, out var array))
             {
-                owner.Dispose();
+                // Limpa dados sensíveis antes de devolver
+                if (array.Length > 1024 * 1024) // Só limpa arrays grandes
+                {
+                    Array.Clear(array);
+                }
+
+                _arrayPool.Return(array, clearArray: false); // Já limpamos se necessário
                 Interlocked.Add(ref _totalAllocated, -memory.Length);
 
-                _logger.LogTrace(
-                    "Memória devolvida: {Size:N0} bytes. Total alocado: {Total:N0} bytes",
-                    memory.Length,
-                    _totalAllocated);
+                if (_logger.IsEnabled(LogLevel.Trace))
+                {
+                    _logger.LogTrace(
+                        "Memória devolvida: {Size:N0} bytes. Total alocado: {Total:N0} bytes",
+                        memory.Length,
+                        _totalAllocated);
+                }
             }
         }
         catch (Exception ex)
@@ -95,9 +113,11 @@ public sealed class PooledMemoryManager : IMemoryManager
 
         try
         {
-            foreach (var owner in _rentedMemory.Values)
+            foreach (var (_, array) in _rentedMemory)
             {
-                owner.Dispose();
+                // Limpa dados sensíveis
+                Array.Clear(array);
+                _arrayPool.Return(array);
             }
 
             _rentedMemory.Clear();

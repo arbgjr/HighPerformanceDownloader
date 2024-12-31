@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
-    <PublishAot>true</PublishAot>
+    <PublishAot>false</PublishAot>
     <OptimizationPreference>Speed</OptimizationPreference>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>

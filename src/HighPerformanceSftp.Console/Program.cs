@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime;
+using System.Text.Json;
 
 namespace HighPerformanceSftp.Console;
 
@@ -24,24 +25,86 @@ public static class Program
         {
             // Limpa a tela
             System.Console.Clear();
-
             OptimizeRuntime();
+
+            var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            if (!File.Exists(configPath))
+            {
+                System.Console.WriteLine($"Arquivo não encontrado: {configPath}");
+                return 1;
+            }
+
+            // Tenta ler e validar o JSON primeiro
+            try
+            {
+                var jsonContent = File.ReadAllText(configPath);
+                using var jsonDocument = JsonDocument.Parse(jsonContent);
+
+                // Verifica se as seções principais existem
+                var root = jsonDocument.RootElement;
+                if (!root.TryGetProperty("SftpConfig", out _))
+                {
+                    throw new InvalidOperationException("Seção 'SftpConfig' não encontrada no JSON");
+                }
+            }
+            catch (Exception jsonEx)
+            {
+                System.Console.WriteLine($"Erro ao validar JSON: {jsonEx.Message}");
+                System.Console.WriteLine($"Tipo do erro: {jsonEx.GetType().Name}");
+                if (jsonEx.InnerException != null)
+                {
+                    System.Console.WriteLine($"Erro interno: {jsonEx.InnerException.Message}");
+                }
+                throw;
+            }
+
+            var configBuilder = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+            try
+            {
+                var config = configBuilder.Build();
+
+                // Configuração do JsonSerializerOptions para o Get<T>
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true,
+                    ReadCommentHandling = JsonCommentHandling.Skip
+                };
+
+                var sftpConfig = config.GetSection("SftpConfig").Get<SftpConfig>();
+                if (sftpConfig == null)
+                {
+                    throw new InvalidOperationException("Não foi possível ler a seção SftpConfig");
+                }
+            }
+            catch (Exception configEx)
+            {
+                System.Console.WriteLine($"Erro ao ler configuração: {configEx.Message}");
+                System.Console.WriteLine($"Pasta atual: {AppContext.BaseDirectory}");
+                System.Console.WriteLine($"Arquivo: {configPath}");
+                throw;
+            }
 
             // Configura host
             using var host = CreateHostBuilder(args).Build();
-
             // Configura logging inicial
             SetupInitialLogging();
-
             // Executa a aplicação
             await host.Services.GetRequiredService<App>().RunAsync();
-
             return 0;
         }
         catch (Exception ex)
         {
             System.Console.WriteLine($"Erro fatal: {ex.Message}");
             System.Console.WriteLine(ex.StackTrace);
+            if (ex.InnerException != null)
+            {
+                System.Console.WriteLine("Erro interno:");
+                System.Console.WriteLine(ex.InnerException.Message);
+            }
             return 1;
         }
     }

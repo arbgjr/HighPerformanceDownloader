@@ -6,6 +6,7 @@ using HighPerformanceSftp.Infrastructure.IO;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.IO.Pipelines;
 
 public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
 {
@@ -14,8 +15,8 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
     private readonly ILogger<ParallelChunkDownloadStrategy> _logger;
     private readonly DownloadConfig _config;
     private readonly ConcurrentDictionary<int, Memory<byte>> _completedChunks;
-    private readonly RateLimiter _rateLimiter;
     private int _activeTasks;
+    private readonly Pipe _pipe;  // Adicione isto
 
     public ParallelChunkDownloadStrategy(
         ISftpRepository repository,
@@ -26,22 +27,42 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _config = downloadConfig?.Value ?? throw new ArgumentNullException(nameof(downloadConfig));
+
+        var config = downloadConfig?.Value ?? throw new ArgumentNullException(nameof(downloadConfig));
+        _config = new DownloadConfig
+        {
+            ChunkSize = Math.Max(1024 * 1024 * 4, config.ChunkSize), // Mínimo 4MB
+            MaxParallelChunks = Math.Max(8, config.MaxParallelChunks), // Mínimo 8 paralelos
+            MaxBytesPerSecond = config.MaxBytesPerSecond,
+            BufferSize = config.BufferSize,
+            UseDirectMemory = config.UseDirectMemory,
+            RetryCount = config.RetryCount,
+            RetryDelayMs = config.RetryDelayMs,
+            EnableCompression = config.EnableCompression,
+            ValidateChecksum = config.ValidateChecksum
+        };
+
         _completedChunks = new ConcurrentDictionary<int, Memory<byte>>();
-        _rateLimiter = new RateLimiter();
+        _pipe = new Pipe(new PipeOptions(
+            pauseWriterThreshold: 1024 * 1024 * 4,
+            resumeWriterThreshold: 1024 * 1024 * 2,
+            minimumSegmentSize: 4096));
     }
 
     public async Task DownloadAsync(DownloadContext context)
     {
         var fileSize = await _repository.GetFileSizeAsync(context.RemotePath);
-        var totalChunks = (int)Math.Ceiling((double)fileSize / context.Config.ChunkSize);
+        var chunkSize = Math.Max(1024 * 1024 * 4, context.Config.ChunkSize); // Mínimo 4MB por chunk
+        var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
+
+        var maxParallelChunks = Math.Max(8, context.Config.MaxParallelChunks); // Mínimo 8 chunks paralelos
 
         _logger.LogInformation(
             "Iniciando download paralelo: {TotalChunks} chunks de {ChunkSize:N0} bytes",
             totalChunks,
             context.Config.ChunkSize);
 
-        using var semaphore = new SemaphoreSlim(context.Config.MaxParallelChunks);
+        using var semaphore = new SemaphoreSlim(maxParallelChunks);
         var tasks = new List<Task>();
         var failedChunks = new ConcurrentBag<int>();
         var retryCount = new ConcurrentDictionary<int, int>();
@@ -140,6 +161,7 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
 
         _logger.LogInformation("Arquivo final salvo com sucesso: {Path}", context.LocalPath);
     }
+
     private async Task DownloadChunkAsync(
         int chunkIndex,
         DownloadContext context,
@@ -163,31 +185,41 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
                     using var stream = await _repository.OpenReadAsync(context.RemotePath);
                     stream.Position = offset;
 
-                    var bytesRead = await _rateLimiter.ThrottleAsync(async () =>
-                    {
-                        return await stream.ReadAsync(
-                            memory,
-                            context.CancellationToken);
-                    }, context.Config.MaxBytesPerSecond);
+                    var totalBytesRead = 0;
+                    const int bufferSize = 32768 * 16; // 512KB por leitura
 
-                    if (bytesRead > 0)
+                    while (totalBytesRead < chunkSize)
                     {
-                        _completedChunks[chunkIndex] = memory[..bytesRead];
+                        var bytesToRead = Math.Min(bufferSize, chunkSize - totalBytesRead);
+                        var bytesRead = await stream.ReadAsync(
+                            memory.Slice(totalBytesRead, bytesToRead),
+                            context.CancellationToken);
+
+                        if (bytesRead == 0)
+                            break;
+                        totalBytesRead += bytesRead;
+
+                        // Atualiza progresso a cada leitura
                         context.MetricsCollector.RecordBytesTransferred(bytesRead);
+                    }
+
+                    if (totalBytesRead > 0)
+                    {
+                        _completedChunks[chunkIndex] = memory[..totalBytesRead];
                         context.MetricsCollector.RecordChunkCompleted();
 
                         var progress = new DownloadProgress
                         {
                             BytesTransferred = _completedChunks.Values.Sum(chunk => chunk.Length),
                             TotalBytes = fileSize,
-                            SpeedMbps = _rateLimiter.GetCurrentSpeedMbps(),
+                            SpeedMbps = CalculateSpeed(totalBytesRead),
                             CompletedChunks = _completedChunks.Count,
                             TotalChunks = (int)Math.Ceiling((double)fileSize / context.Config.ChunkSize),
                             CurrentParallelDownloads = _activeTasks,
                             EstimatedTimeRemaining = CalculateETA(
                                 _completedChunks.Values.Sum(chunk => chunk.Length),
                                 fileSize,
-                                _rateLimiter.GetCurrentSpeedMbps())
+                                CalculateSpeed(totalBytesRead))
                         };
 
                         context.ProgressObserver.OnProgress(progress);
@@ -242,4 +274,9 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
         return TimeSpan.FromSeconds(remainingSeconds);
     }
 
+    private double CalculateSpeed(long bytesTransferred)
+    {
+        const double megabyte = 1024 * 1024;
+        return bytesTransferred / megabyte;
+    }
 }
