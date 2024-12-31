@@ -22,26 +22,23 @@ Uma solução de alta performance para download de arquivos grandes via SFTP, co
 
 ```
 HighPerformanceSftp/
-├── src/
-│   ├── HighPerformanceSftp.Domain/        # Entidades e interfaces core
-│   ├── HighPerformanceSftp.Application/   # Lógica de aplicação
-│   ├── HighPerformanceSftp.Infrastructure/# Implementações e serviços
-│   └── HighPerformanceSftp.Console/       # Aplicação console
-└── tests/
-    ├── HighPerformanceSftp.UnitTests/     # Testes unitários
-    └── HighPerformanceSftp.IntegrationTests/ # Testes de integração
+└── src/
+    ├── HighPerformanceSftp.Domain/        # Entidades e interfaces core
+    ├── HighPerformanceSftp.Application/   # Lógica de aplicação
+    ├── HighPerformanceSftp.Infrastructure/# Implementações e serviços
+    └── HighPerformanceSftp.Console/       # Aplicação console
 ```
 
 ## Instalação
 
 1. Clone o repositório
 ```bash
-git clone https://github.com/seu-usuario/HighPerformanceSftp.git
+git clone https://github.com/arbgjr/HighPerformanceDownloader.git
 ```
 
 2. Navegue até a pasta do projeto
 ```bash
-cd HighPerformanceSftp
+cd HighPerformanceDownloader
 ```
 
 3. Restaure os pacotes NuGet
@@ -61,7 +58,7 @@ dotnet build
 ```json
 {
   "SftpConfig": {
-    "Host": "sftp.sinqia.com.br",
+    "Host": "sftp.dominio.com.br",
     "Username": "seu_usuario",
     "Password": "sua_senha"
   }
@@ -79,24 +76,6 @@ dotnet run
 2. Para build otimizado de performance:
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained true /p:PublishAot=true
-```
-
-## Testes
-
-### Executar Testes Unitários
-```bash
-dotnet test tests/HighPerformanceSftp.UnitTests
-```
-
-### Executar Testes de Integração
-```bash
-dotnet test tests/HighPerformanceSftp.IntegrationTests
-```
-
-### Executar Benchmarks
-```bash
-cd tests/HighPerformanceSftp.UnitTests
-dotnet run -c Release --filter *Benchmark*
 ```
 
 ## Diagnóstico de Performance
@@ -138,4 +117,4 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## Suporte
 
-Para reportar bugs ou solicitar features, por favor abra uma [issue](https://github.com/seu-usuario/HighPerformanceSftp/issues).
+Para reportar bugs ou solicitar features, por favor abra uma [issue](https://github.com/arbgjr/HighPerformanceDownloader/issues).
