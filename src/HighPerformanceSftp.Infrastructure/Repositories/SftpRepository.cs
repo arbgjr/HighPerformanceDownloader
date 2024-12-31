@@ -72,8 +72,8 @@ public sealed class SftpRepository : ISftpRepository
             };
 
             _client = new SftpClient(connectionInfo);
-            _client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-            _client.BufferSize = 1024 * 1024 * 2;
+            _client.KeepAliveInterval = TimeSpan.FromSeconds(5);
+            _client.BufferSize = 1024 * 1024 * 4;
             _client.ConnectionInfo.Timeout = TimeSpan.FromMinutes(2);
             _client.OperationTimeout = TimeSpan.FromMinutes(5);
 
@@ -160,7 +160,7 @@ public sealed class SftpRepository : ISftpRepository
             var stream = _client!.OpenRead(path);
 
             // Wrapper para garantir que o stream seja não-blocante
-            return new BufferedStream(stream, 1024 * 1024 * 2); // 2MB buffer
+            return new BufferedStream(stream, 1024 * 1024 * 4); // 2MB buffer
         }
         catch (Exception ex)
         {

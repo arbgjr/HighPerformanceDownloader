@@ -51,73 +51,93 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
 
     public async Task DownloadAsync(DownloadContext context)
     {
-        var fileSize = await _repository.GetFileSizeAsync(context.RemotePath);
-        var chunkSize = Math.Max(1024 * 1024 * 4, context.Config.ChunkSize); // Mínimo 4MB por chunk
-        var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
-
-        var maxParallelChunks = Math.Max(8, context.Config.MaxParallelChunks); // Mínimo 8 chunks paralelos
-
-        _logger.LogInformation(
-            "Iniciando download paralelo: {TotalChunks} chunks de {ChunkSize:N0} bytes",
-            totalChunks,
-            context.Config.ChunkSize);
-
-        using var semaphore = new SemaphoreSlim(maxParallelChunks);
-        var tasks = new List<Task>();
-        var failedChunks = new ConcurrentBag<int>();
-        var retryCount = new ConcurrentDictionary<int, int>();
-
-        for (var i = 0; i < totalChunks; i++)
-        {
-            await semaphore.WaitAsync(context.CancellationToken);
-            var chunkIndex = i;
-            Interlocked.Increment(ref _activeTasks);
-
-            var task = Task.Run(async () =>
-            {
-                try
-                {
-                    await DownloadChunkAsync(
-                        chunkIndex,
-                        context,
-                        fileSize,
-                        failedChunks,
-                        retryCount,
-                        semaphore);
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref _activeTasks);
-                    semaphore.Release();
-                }
-            }, context.CancellationToken);
-
-            tasks.Add(task);
-        }
-
-        // Aguarda todos os chunks ou falha
         try
         {
-            await Task.WhenAll(tasks);
+            var fileSize = await _repository.GetFileSizeAsync(context.RemotePath);
+            var chunkSize = Math.Max(1024 * 1024 * 4, context.Config.ChunkSize); // Mínimo 4MB por chunk
+            var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
+
+            var maxParallelChunks = Math.Max(8, context.Config.MaxParallelChunks); // Mínimo 8 chunks paralelos
+
+            _logger.LogInformation(
+                "Iniciando download paralelo: {TotalChunks} chunks de {ChunkSize:N0} bytes",
+                totalChunks,
+                context.Config.ChunkSize);
+
+            using var semaphore = new SemaphoreSlim(maxParallelChunks);
+            var tasks = new List<Task>();
+            var failedChunks = new ConcurrentBag<int>();
+            var retryCount = new ConcurrentDictionary<int, int>();
+
+            for (var i = 0; i < totalChunks; i++)
+            {
+                await semaphore.WaitAsync(context.CancellationToken);
+                var chunkIndex = i;
+                Interlocked.Increment(ref _activeTasks);
+
+                var task = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await DownloadChunkAsync(
+                            chunkIndex,
+                            context,
+                            fileSize,
+                            failedChunks,
+                            retryCount,
+                            semaphore);
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _activeTasks);
+                        semaphore.Release();
+                    }
+                }, context.CancellationToken);
+
+                tasks.Add(task);
+            }
+
+            // Aguarda todos os chunks ou falha
+            try
+            {
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Falha no download. {FailedChunks} chunks falharam",
+                    failedChunks.Count);
+                throw;
+            }
+
+            // Se algum chunk falhou, falha todo o download
+            if (failedChunks.Any())
+            {
+                throw new DownloadException(
+                    $"Download falhou. {failedChunks.Count} chunks não puderam ser baixados após todas as tentativas.");
+            }
+
+            // Combina os chunks e salva o arquivo
+            await SaveCompleteFileAsync(context, totalChunks);
+            // Garante que o OnComplete seja chamado
+            var finalMetrics = context.MetricsCollector.GetCurrentMetrics();
+            context.ProgressObserver.OnComplete(finalMetrics);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(
-                ex,
-                "Falha no download. {FailedChunks} chunks falharam",
-                failedChunks.Count);
+            // Se falhar, ainda tenta chamar OnComplete com os dados que temos
+            try
+            {
+                var metrics = context.MetricsCollector.GetCurrentMetrics();
+                context.ProgressObserver.OnComplete(metrics);
+            }
+            catch
+            {
+                // Ignora erro ao tentar reportar métricas finais
+            }
             throw;
         }
-
-        // Se algum chunk falhou, falha todo o download
-        if (failedChunks.Any())
-        {
-            throw new DownloadException(
-                $"Download falhou. {failedChunks.Count} chunks não puderam ser baixados após todas as tentativas.");
-        }
-
-        // Combina os chunks e salva o arquivo
-        await SaveCompleteFileAsync(context, totalChunks);
     }
 
     private async Task SaveCompleteFileAsync(DownloadContext context, int totalChunks)
@@ -186,7 +206,8 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
                     stream.Position = offset;
 
                     var totalBytesRead = 0;
-                    const int bufferSize = 32768 * 16; // 512KB por leitura
+                    const int bufferSize = 4 * 1024 * 1024; // 4MB por leitura
+                    var buffer = new byte[bufferSize]; // Adicione esta linha
 
                     while (totalBytesRead < chunkSize)
                     {
@@ -199,7 +220,6 @@ public sealed class ParallelChunkDownloadStrategy : IDownloadStrategy
                             break;
                         totalBytesRead += bytesRead;
 
-                        // Atualiza progresso a cada leitura
                         context.MetricsCollector.RecordBytesTransferred(bytesRead);
                     }
 

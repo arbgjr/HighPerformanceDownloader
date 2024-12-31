@@ -78,12 +78,12 @@ public sealed class ConsoleProgressObserver : IProgressObserver, IConnectionObse
         var totalMB = metrics.TotalBytesTransferred / (1024.0 * 1024.0);
         var averageMBps = totalMB / totalSeconds;
 
-        var separator = new string('-', Console.BufferWidth - 1);
+        var separator = new string('=', Console.BufferWidth - 1);
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine(separator);
 
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Download Concluído!");
+        Console.WriteLine("DOWNLOAD CONCLUÍDO COM SUCESSO!");
 
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine($"Tempo Total: {metrics.Elapsed:hh\\:mm\\:ss\\.fff}");
